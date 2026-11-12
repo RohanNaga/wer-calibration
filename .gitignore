@@ -8,3 +8,5 @@ data/*
 !data/.gitkeep
 *.wav
 *.flac
+*.egg-info/
+.pytest_cache/

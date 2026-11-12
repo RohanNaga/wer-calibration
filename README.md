@@ -29,9 +29,41 @@ Each split is subsampled with a fixed seed. No ASR model is trained; all models 
 4. **Calibrate**: baselines, 1D binomial IRT, multidimensional IRT.
 5. **Evaluate**: leave one model out, estimate its ability on dataset A, predict its WER on dataset B.
 
+## Setup
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"        # add ",asr" for model inference deps
+pytest                          # end-to-end tests; needs network for the Hugging Face Hub
+```
+
+Set `WERCAL_DATA_DIR` to put data somewhere other than `./data` (for example scratch storage on Delta).
+
+## Data prep usage
+
+```bash
+# 1. Build a fixed-seed utterance list (manifest) for a corpus split
+python -m wercal.data.manifest --corpus librispeech --split dev-clean --n 500 --seed 0
+
+# 2. Run a model and write data/hyps/{model}/{corpus}_{split}.jsonl,
+#    one line per utterance: {"utt_id": "...", "hyp": "raw model output"}
+
+# 3. Normalize and score into response-matrix rows
+python -m wercal.score --model openai/whisper-large-v3 --corpus librispeech --split dev-clean
+```
+
+Corpora: `librispeech` (dev-clean, dev-other, test-clean, test-other), `tedlium2` (dev, test),
+`ami_ihm` and `ami_sdm` (dev, test). All stream from the Hugging Face Hub, so nothing needs
+downloading by hand. TED-LIUM comes from `distil-whisper/tedlium-dev-test`, because the official
+repo is gated. Releases 1 to 3 share the same dev and test talks.
+
+Manifests drop TED-LIUM `ignore_time_segment_in_scoring` segments and utterances that are empty
+after normalization, such as AMI "mm-hmm" backchannels.
+
 ## Response matrix schema
 
-Stored as Parquet at `data/responses/{dataset}_{split}.parquet`.
+Stored as Parquet at `data/responses/{corpus}_{split}/{model}.parquet`, one file per model so runs
+on different machines never overwrite each other.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -53,21 +85,23 @@ and the IRT likelihood needs counts.
 
 ```
 src/wercal/
-  data/        dataset loaders and subsampling
-  asr/         one runner per toolkit (HF, ESPnet, NeMo)
-  normalize.py shared text normalizer
-  score.py     error counting into the response matrix
-  irt/         baselines, 1D IRT, MIRT
-  eval/        leave-one-model-out harness
-configs/       model pool and dataset configs
-data/          cached hypotheses and response matrices (git-ignored)
+  data/corpora.py   corpus registry and Hub streaming
+  data/manifest.py  filtering and fixed-seed subsampling
+  normalize.py      shared text normalizer (Whisper's English normalizer)
+  score.py          error counting into the response matrix
+  paths.py          where every artifact lives
+  asr/              one runner per toolkit (HF, ESPnet, NeMo)
+  irt/              baselines, 1D IRT, MIRT
+  eval/             leave-one-model-out harness
+tests/              end-to-end tests
+data/               manifests, hypotheses, response matrices (git-ignored)
 ```
 
 ## Work split
 
 | Area | Owner |
 |---|---|
-| Data loading, subsampling, normalization | TBD |
+| Data loading, subsampling, text normalization, scoring | Rohan |
 | ASR inference runners | TBD |
 | IRT models | TBD |
 | Baselines and evaluation harness | TBD |
