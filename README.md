@@ -43,7 +43,7 @@ Set `WERCAL_DATA_DIR` to put data somewhere other than `./data` (for example scr
 
 ```bash
 # 1. Build a fixed-seed utterance list (manifest) for a corpus split
-python -m wercal.data.manifest --corpus librispeech --split dev-clean --n 500 --seed 0
+python -m wercal.data.manifest --corpus librispeech --split dev-clean --n 500 --seed 0 --min-words 1
 
 # 2. Run a model and write data/hyps/{model}/{corpus}_{split}.jsonl,
 #    one line per utterance: {"utt_id": "...", "hyp": "raw model output"}
